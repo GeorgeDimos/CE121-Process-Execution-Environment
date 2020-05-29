@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <poll.h>
 #include "util.h"
 
 #define MAXINPUT 500
@@ -49,6 +50,7 @@ int main (int argc, char *argv[]){
 
 	struct sigaction act_chl ={{0}};
 	act_chl.sa_handler = childhandler;
+	act_chl.sa_flags = SA_RESTART;
 	if(sigaction(SIGCHLD, &act_chl, NULL)==-1){
 		fprintf(stderr, "seting signal action failed.Exiting\n");
 		return 1;
@@ -56,6 +58,7 @@ int main (int argc, char *argv[]){
 
 	struct sigaction act_susr1 ={{0}};
 	act_susr1.sa_handler = sigusr1handler;
+	act_susr1.sa_flags = SA_RESTART;
 	if(sigaction(SIGUSR1, &act_susr1, NULL)==-1){
 		fprintf(stderr, "seting signal action failed.Exiting\n");
 		return 1;
@@ -63,13 +66,11 @@ int main (int argc, char *argv[]){
 
 	struct sigaction act_alrm ={{0}};
 	act_alrm.sa_handler = sigalrmhandler;
+	act_alrm.sa_flags = SA_RESTART;
 	if(sigaction(SIGALRM, &act_alrm, NULL)==-1){
 		fprintf(stderr, "seting signal action failed.Exiting\n");
 		return 1;
 	}
-
-	int flags = fcntl(STDIN_FILENO, F_GETFL);
-	fcntl(STDIN_FILENO,F_SETFL,flags|O_NONBLOCK);
 
 	struct itimerval t = { {0} };
 	t.it_value.tv_sec = 20;
@@ -80,8 +81,25 @@ int main (int argc, char *argv[]){
 		fprintf(stderr, "Error seting timer\n");
 		return 1;
 	}
- 
+
+	struct pollfd fdinfo={0};
+	fdinfo.fd = STDIN_FILENO;
+	fdinfo.events = POLLIN;
+
 	while(!quit){
+		n=poll(&fdinfo, 1, 5000000);
+		if(n<0){
+			if(errno != EINTR){
+				fprintf(stderr,"Read poll failed\n");
+			}
+		}
+		else if (n==1){
+			n = read(STDIN_FILENO,input,MAXINPUT);
+			input[n]='\0';
+			input[strcspn(input, "\n")] = 0;
+			numofArgs = tokenize(input, args);
+			quit = action(numofArgs, args);
+		}
 
 		if(update){
 			update = 0;
@@ -97,24 +115,9 @@ int main (int argc, char *argv[]){
 			sigalrmrec = 0;
 			switchactive();
 		}
-
-		n = read(STDIN_FILENO,input,MAXINPUT);
-		if(n==-1){
-			if(errno == EAGAIN){
-				continue;
-			}
-			else{
-				fprintf(stderr,"Read from STDIN_FILENO failed\n");
-			}
-		}
-		input[n]='\0';
-		input[strcspn(input, "\n")] = 0;
-		numofArgs = tokenize(input, args);
-		quit = action(numofArgs, args);	
 	}
 
 	killemall();
-
 
 	return 0;
 }
@@ -144,14 +147,14 @@ static int action(int numofArgs, char *args[]){
 				fprintf(stderr, "seting default action for SIGUSR1 to child failed.Exiting\n");
 				return 1;
 			}
+			if(!isEmpty()){
+				if(raise(SIGSTOP)==-1){
+					fprintf(stderr, "Error with raise\n");
+				}
+			}
 			execv(args[1], args+1);  //terminate with NULL pointer, well that was a freebie
 			fprintf(stderr,"Error execv\n");
 			return 1;
-		}
-		if(!isEmpty()){
-			if(kill(pid, SIGSTOP)==-1){
-				fprintf(stderr,"Error sending SIGSTOP to proccess %d\n", atoi(args[1]));
-			}
 		}
 		addNode(args[1], pid, numofArgs-1, args+1, isEmpty());
 	}
@@ -218,8 +221,8 @@ static void checkchildren(){
 }
 
 static void sendSigusr1ToAll(){
-struct node_t *runner = head;
-
+	
+	struct node_t *runner = head;
 	if(isEmpty()){
 		printf("No children left\n");
 		return;
