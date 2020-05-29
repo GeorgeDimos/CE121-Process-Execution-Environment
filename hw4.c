@@ -25,9 +25,9 @@ static void killemall();
 static void sendSigusr1ToAll();
 static void switchactive();
 
-static volatile sig_atomic_t update = 0;
+static volatile sig_atomic_t sigchldrec = 0;
 static void childhandler(int sig) {
-	update = 1;
+	sigchldrec = 1;
 }
 
 static volatile sig_atomic_t sigusr1rec = 0;
@@ -73,9 +73,9 @@ int main (int argc, char *argv[]){
 	}
 
 	struct itimerval t = { {0} };
-	t.it_value.tv_sec = 20;
+	t.it_value.tv_sec = 5;
 	t.it_value.tv_usec = 0;
-	t.it_interval.tv_sec = 20;
+	t.it_interval.tv_sec = 5;
 	t.it_interval.tv_usec=0;
 	if(setitimer(ITIMER_REAL,&t,NULL)==-1){
 		fprintf(stderr, "Error seting timer\n");
@@ -101,8 +101,8 @@ int main (int argc, char *argv[]){
 			quit = action(numofArgs, args);
 		}
 
-		if(update){
-			update = 0;
+		if(sigchldrec){
+			sigchldrec = 0;
 			checkchildren();
 		}
 
@@ -187,37 +187,28 @@ static int action(int numofArgs, char *args[]){
 }
 
 static void checkchildren(){
-	int check, status;
-	struct node_t *runner = head;
+	int status, pid;
+	struct node_t *runner;
 	
-	if(isEmpty()){
-		printf("No children active\n");
-		return ;
+	while((pid=waitpid(-1, &status, WNOHANG))>0){
+		if( WIFEXITED(status) || WTERMSIG(status) ){
+			printf("pid: %d deleted\n", pid);
+			runner = findpid(pid);
+			if(runner->active==1 && runner!=runner->nxt){
+				if(kill(runner->nxt->pid, SIGCONT)==-1){
+					fprintf(stderr,"Error sending SIGCONT to proccess %d\n", runner->nxt->pid);
+				}
+				runner->active = 0;
+				runner->nxt->active = 1;
+			}
+			deleteNode(runner);
+		}
 	}
 
-	do{
-		if((check = waitpid(runner->pid, &status, WNOHANG))>0){
-			if(WIFEXITED(status) || WIFSIGNALED(status)){
-				printf("pid: %d deleted\n",runner->pid);
-				if(runner->active==1 && runner!=runner->nxt){
-					if(kill(runner->nxt->pid, SIGCONT)==-1){
-						fprintf(stderr,"Error sending SIGCONT to proccess %d\n", runner->nxt->pid);
-					}
-					runner->active = 0;
-					runner->nxt->active = 1;
-				}
-				deleteNode(runner);
-			}
-		}
-
-		if(check == 1){
-			fprintf(stderr,"waitpid exited with error %d\n", errno);
-			exit(EXIT_FAILURE);
-		}
-		
-		runner = runner->nxt;
-		
-	}while(runner!=head && head!=NULL);
+	if(pid == -1 && errno!=ECHILD){
+		fprintf(stderr,"waitpid exited with error %d\n", errno);
+		exit(EXIT_FAILURE);
+	}
 }
 
 static void sendSigusr1ToAll(){
@@ -229,14 +220,16 @@ static void sendSigusr1ToAll(){
 	}
 
 	do{
-		kill(runner->pid, SIGUSR1);
+		if(kill(runner->pid, SIGUSR1)==-1){
+			fprintf(stderr,"Error sending SIGUSR1 to proccess %d\n", runner->pid);
+		}
 		runner = runner->nxt;
 	}while(runner!=head);
 }
 
 static void killemall(){
 	struct node_t *runner = head;
-	int status;
+	int status, pid;
 
 	if(isEmpty()){
 		printf("No children left\n");
@@ -244,21 +237,28 @@ static void killemall(){
 	}
 
 	do{
-		kill(runner->pid, SIGTERM);
+		if(kill(runner->pid, SIGCONT)==-1){
+			fprintf(stderr,"Error sending SIGCONT to proccess %d\n", runner->pid);
+		}
+		if(kill(runner->pid, SIGTERM)==-1){
+			fprintf(stderr,"Error sending SIGTERM to proccess %d\n", runner->pid);
+		}
 		runner = runner->nxt;
 	}while(runner!=head);
 
-	do{
-		if(waitpid(runner->pid, &status, 0)==-1){
+	
+
+	while(!isEmpty()){
+		if((pid = waitpid(-1, &status, 0))==-1){
 			fprintf(stderr,"waitpid exited with error %d\n", errno);
 			exit(EXIT_FAILURE);
 		}
+		runner = findpid(pid);
 		if(WIFEXITED(status) || WIFSIGNALED(status)){
-			printf("pid: %d deleted\n", runner->pid);
+			printf("pid: %d deleted\n", pid);
 			deleteNode(runner);
 		}
-		runner = runner->nxt;
-	}while(head!=NULL);
+	}
 }
 
 static void switchactive(){
@@ -266,14 +266,14 @@ static void switchactive(){
 	if(isEmpty()){
 		return;
 	}
-	struct node_t *p = findRunning();
-	if(kill(p->pid, SIGSTOP)==-1){
-		fprintf(stderr,"Error sending SIGSTOP to proccess %d\n", p->pid);
+	struct node_t *cur = findRunning();
+	if(kill(cur->pid, SIGSTOP)==-1){
+		fprintf(stderr,"Error sending SIGSTOP to proccess %d\n", cur->pid);
 	}
 	
-	if(kill(p->nxt->pid, SIGCONT)==-1){
-		fprintf(stderr,"Error sending SIGCONT to proccess %d\n", p->nxt->pid);
+	if(kill(cur->nxt->pid, SIGCONT)==-1){
+		fprintf(stderr,"Error sending SIGCONT to proccess %d\n", cur->nxt->pid);
 	}
-	p->active = 0;
-	p->nxt->active = 1;
+	cur->active = 0;
+	cur->nxt->active = 1;
 }
