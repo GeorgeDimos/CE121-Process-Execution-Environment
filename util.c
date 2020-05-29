@@ -68,15 +68,7 @@ void deleteNode(struct node_t *p){
 	free(p);
 }
 
-//εύρεση της επόμενης διεργασίας
-void nextActive(){
-	struct node_t *running = findRunning();
-	running->active = 0;
-	running->nxt->active = 1;
-}
-
 //εκτύπωση των περιεχομένων της λίστας
-
 void printList(){
 	
 	if(isEmpty()){
@@ -84,41 +76,41 @@ void printList(){
 		return;
 	}
 
-	struct node_t  *runner = head;
+	struct node_t  *cur = head;
 
 	do{
-		printf("pid: %d, name: (", runner->pid);
-		for (int i=0; i<runner->argc; i++){
-			printf("%s", runner->argv[i]);
-			if(i<runner->argc-1){
+		printf("pid: %d, name: (", cur->pid);
+		for (int i=0; i<cur->argc; i++){
+			printf("%s", cur->argv[i]);
+			if(i<cur->argc-1){
 				printf(", ");
 			}
 		}
 		printf(") ");
-		if(runner->active){
+		if(cur->active){
 			printf("(R)");
 		}
 		printf("\n");
-		runner = runner->nxt;
-	}while(runner!=head);
+		cur = cur->nxt;
+	}while(cur!=head);
 }
 
 struct node_t *findpid(pid_t pid){
-	struct node_t *runner;
+	struct node_t *cur;
 
 	if(isEmpty()){
 		printf("No process is running\n");
 		return NULL;
 	}
 
-	runner = head;
+	cur = head;
 	
 	do{
-		if(runner->pid == pid){
-			return runner;
+		if(cur->pid == pid){
+			return cur;
 		}
-		runner = runner->nxt;
-	}while(runner!=head);
+		cur = cur->nxt;
+	}while(cur!=head);
 
 	printf("Process with pid %d not a child process\n", pid);
 	return NULL;
@@ -126,20 +118,20 @@ struct node_t *findpid(pid_t pid){
 
 //εύρεση της διεργασίας που τρέχει
 struct node_t *findRunning(){
-	struct node_t *runner;
+	struct node_t *cur;
 
 	if(isEmpty()){
 		printf("No process is running\n");
 		return NULL;
 	}
 
-	runner = head;
+	cur = head;
 	do{
-		if(runner->active){
-			return runner;
+		if(cur->active){
+			return cur;
 		}
-		runner = runner->nxt;
-	}while(runner!=head);
+		cur = cur->nxt;
+	}while(cur!=head);
 
 	return NULL;
 }

@@ -188,20 +188,20 @@ static int action(int numofArgs, char *args[]){
 
 static void checkchildren(){
 	int status, pid;
-	struct node_t *runner;
+	struct node_t *cur;
 	
 	while((pid=waitpid(-1, &status, WNOHANG))>0){
 		if( WIFEXITED(status) || WTERMSIG(status) ){
 			printf("pid: %d deleted\n", pid);
-			runner = findpid(pid);
-			if(runner->active==1 && runner!=runner->nxt){
-				if(kill(runner->nxt->pid, SIGCONT)==-1){
-					fprintf(stderr,"Error sending SIGCONT to proccess %d\n", runner->nxt->pid);
+			cur = findpid(pid);
+			if(cur->active==1 && cur!=cur->nxt){
+				if(kill(cur->nxt->pid, SIGCONT)==-1){
+					fprintf(stderr,"Error sending SIGCONT to proccess %d\n", cur->nxt->pid);
 				}
-				runner->active = 0;
-				runner->nxt->active = 1;
+				cur->active = 0;
+				cur->nxt->active = 1;
 			}
-			deleteNode(runner);
+			deleteNode(cur);
 		}
 	}
 
@@ -213,22 +213,22 @@ static void checkchildren(){
 
 static void sendSigusr1ToAll(){
 	
-	struct node_t *runner = head;
+	struct node_t *cur = head;
 	if(isEmpty()){
 		printf("No children left\n");
 		return;
 	}
 
 	do{
-		if(kill(runner->pid, SIGUSR1)==-1){
-			fprintf(stderr,"Error sending SIGUSR1 to proccess %d\n", runner->pid);
+		if(kill(cur->pid, SIGUSR1)==-1){
+			fprintf(stderr,"Error sending SIGUSR1 to proccess %d\n", cur->pid);
 		}
-		runner = runner->nxt;
-	}while(runner!=head);
+		cur = cur->nxt;
+	}while(cur!=head);
 }
 
 static void killemall(){
-	struct node_t *runner = head;
+	struct node_t *cur = head;
 	int status, pid;
 
 	if(isEmpty()){
@@ -237,14 +237,14 @@ static void killemall(){
 	}
 
 	do{
-		if(kill(runner->pid, SIGCONT)==-1){
-			fprintf(stderr,"Error sending SIGCONT to proccess %d\n", runner->pid);
+		if(kill(cur->pid, SIGCONT)==-1){
+			fprintf(stderr,"Error sending SIGCONT to proccess %d\n", cur->pid);
 		}
-		if(kill(runner->pid, SIGTERM)==-1){
-			fprintf(stderr,"Error sending SIGTERM to proccess %d\n", runner->pid);
+		if(kill(cur->pid, SIGTERM)==-1){
+			fprintf(stderr,"Error sending SIGTERM to proccess %d\n", cur->pid);
 		}
-		runner = runner->nxt;
-	}while(runner!=head);
+		cur = cur->nxt;
+	}while(cur!=head);
 
 	
 
@@ -253,10 +253,10 @@ static void killemall(){
 			fprintf(stderr,"waitpid exited with error %d\n", errno);
 			exit(EXIT_FAILURE);
 		}
-		runner = findpid(pid);
+		cur = findpid(pid);
 		if(WIFEXITED(status) || WIFSIGNALED(status)){
 			printf("pid: %d deleted\n", pid);
-			deleteNode(runner);
+			deleteNode(cur);
 		}
 	}
 }
