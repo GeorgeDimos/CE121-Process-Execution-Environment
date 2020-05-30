@@ -73,9 +73,9 @@ int main (int argc, char *argv[]){
 	}
 
 	struct itimerval t = { {0} };
-	t.it_value.tv_sec = 5;
+	t.it_value.tv_sec = 20;
 	t.it_value.tv_usec = 0;
-	t.it_interval.tv_sec = 5;
+	t.it_interval.tv_sec = 20;
 	t.it_interval.tv_usec=0;
 	if(setitimer(ITIMER_REAL,&t,NULL)==-1){
 		fprintf(stderr, "Error seting timer\n");
