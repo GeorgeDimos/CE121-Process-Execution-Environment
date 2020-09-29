@@ -1,6 +1,7 @@
 /*
- Giorgos Dimos
- 26/05/2020
+ *Giorgos Dimos
+ *26/05/2020
+ *Simple program with just some info printing on stdout
  */
 
 #include <stdio.h>

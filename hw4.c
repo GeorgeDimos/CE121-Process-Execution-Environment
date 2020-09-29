@@ -122,6 +122,13 @@ int main (int argc, char *argv[]){
 	return 0;
 }
 
+/**
+ * @brief Breaks up input command to separate words
+ * 
+ * @param command 
+ * @param words 
+ * @return number of words, -1 for failure 
+ */
 static int tokenize(char *input,char *args[]){
 	
 	args[0] = strtok(input," ");
@@ -136,6 +143,17 @@ static int tokenize(char *input,char *args[]){
 	return i;
 }
 
+/**
+ * @brief parses input and executes command. Available commands:
+ *  exec <progname> <args> : fork-exec new program
+ *  term <pid> : sends SIGTERM to pid
+ *  sig <pid> : sends SIGUSR1 to pid
+ *  list : prints info about current running children
+ *  quit : terminates
+ * @param numofArgs 
+ * @param args 
+ * @return int 
+ */
 static int action(int numofArgs, char *args[]){
 	pid_t pid;
 	struct sigaction act_susr1 = {{0}};
@@ -186,6 +204,11 @@ static int action(int numofArgs, char *args[]){
 	return 0;
 }
 
+/**
+ * @brief Checks if any child has stopped, removes it from the list
+ * and activates the next child process
+ * 
+ */
 static void checkchildren(){
 	int status, pid;
 	struct node_t *cur;
@@ -211,6 +234,10 @@ static void checkchildren(){
 	}
 }
 
+/**
+ * @brief Sends signal SIGUSR1 to all child processes
+ * 
+ */
 static void sendSigusr1ToAll(){
 	
 	struct node_t *cur = head;
@@ -227,6 +254,12 @@ static void sendSigusr1ToAll(){
 	}while(cur!=head);
 }
 
+/**
+ * @brief Sends SIGTERM to all child procesess.
+ * SIGCONT is sent first to activate the processes in order
+ * for them to receive the SIGTERM signal.
+ * 
+ */
 static void killemall(){
 	struct node_t *cur = head;
 	int status, pid;
@@ -261,6 +294,11 @@ static void killemall(){
 	}
 }
 
+/**
+ * @brief Stops currently active process and
+ * sets the next child as active
+ * 
+ */
 static void switchactive(){
 
 	if(isEmpty()){
